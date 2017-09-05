@@ -1,5 +1,7 @@
 import click
 import boto3
+import getpass
+from botocore.exceptions import ClientError
 from os import makedirs
 from os.path import expanduser, exists as path_exists
 try:
@@ -15,7 +17,7 @@ class Config(object):
     awsconfigfile = '{config_dir}credentials'.format(config_dir=awsconfig_dir)
 
 @click.group()
-@click.option("--profile", help="The AWS credential profile to use when assuming the new role")
+@click.option("--profile", required=True, help="The AWS credential profile to use when assuming the new role")
 @click.option("--output", default="json", help="AWS Output format")
 @click.option("--region", default="us-west-2")
 def cli(profile, output, region):
@@ -36,8 +38,38 @@ def assume_role(role_arn, session, save_profile):
     boto_session = boto3.Session(profile_name=Config.aws_profile)
     sts_client = boto_session.client("sts")
     click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
-    credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
-    write_config(credentials, save_profile)
+    try:
+        credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        file_name = write_config(credentials, save_profile)
+        click.echo("Credentials saved to {filename} under profile: {profile}"
+                   .format(filename=file_name, profile=save_profile))
+    except ClientError as e:
+        click.echo("Error assuming role: {e}".format(e=e))
+        click.get_current_context().exit(2)
+
+@click.command("assume-org")
+@click.option("--account-number", "-a", required=True)
+@click.option("--session", "-s")
+@click.option("--save-profile", "-p", required=True, help="The profile in\
+              which the generated credentials will be saved")
+def assume_org_role(account_number, session, save_profile):
+    """Used to assume the default OrganizationAccountAccessRole in the given account"""
+    click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
+    boto_session = boto3.Session(profile_name=Config.aws_profile)
+    sts_client = boto_session.client("sts")
+    role_arn = "arn:aws:iam::{account}:role/OrganizationAccountAccessRole".format(account=account_number)
+    if session is None:
+        session = getpass.getuser()
+    click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
+    try: 
+        credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        file_name = write_config(credentials, save_profile)
+        click.echo("Credentials saved to {filename} under profile: {profile}"
+                   .format(filename=file_name, profile=save_profile))
+    except ClientError as e:
+        click.echo("Error assuming role: {e}".format(e=e))
+        click.get_current_context().exit(2)
+
 
 def write_config(credentials, save_profile):
     home = expanduser("~")
@@ -55,16 +87,19 @@ def write_config(credentials, save_profile):
     # the default credentials
     if not config.has_section(save_profile):
         config.add_section(save_profile)
-
     config.set(save_profile, 'output', Config.outputformat)
     config.set(save_profile, 'region', Config.region)
     config.set(save_profile, 'aws_access_key_id', credentials['Credentials']['AccessKeyId'])
     config.set(save_profile, 'aws_secret_access_key', credentials['Credentials']['SecretAccessKey'])
     config.set(save_profile, 'aws_session_token', credentials['Credentials']['SessionToken'])
+    config.set(save_profile, 'expiration', credentials['Credentials']['Expiration'])
 
     # Write the updated config file
     with open(filename, 'w+') as configfile:
         config.write(configfile)
 
+    return filename
+
 cli.add_command(role)
 role.add_command(assume_role)
+role.add_command(assume_org_role)
