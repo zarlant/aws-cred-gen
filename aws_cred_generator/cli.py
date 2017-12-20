@@ -1,7 +1,7 @@
 import click
 import boto3
 import getpass
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ProfileNotFound
 from os import makedirs
 from os.path import expanduser, exists as path_exists
 try:
@@ -35,7 +35,10 @@ def role():
 @click.option("--save-profile", "-p", required=True)
 def assume_role(role_arn, session, save_profile):
     click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
-    boto_session = boto3.Session(profile_name=Config.aws_profile)
+    try:
+        boto_session = boto3.Session(profile_name=Config.aws_profile)
+    except ProfileNotFound:
+        boto_session = boto3.Session()
     sts_client = boto_session.client("sts")
     click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
     try:
@@ -55,13 +58,18 @@ def assume_role(role_arn, session, save_profile):
 def assume_org_role(account_number, session, save_profile):
     """Used to assume the default OrganizationAccountAccessRole in the given account"""
     click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
-    boto_session = boto3.Session(profile_name=Config.aws_profile)
+    try:
+        boto_session = boto3.Session(profile_name=Config.aws_profile)
+    except ProfileNotFound:
+        # We'll try and use the default session if we can't find the one passed
+        # to us
+        boto_session = boto3.Session()
     sts_client = boto_session.client("sts")
     role_arn = "arn:aws:iam::{account}:role/OrganizationAccountAccessRole".format(account=account_number)
     if session is None:
         session = getpass.getuser()
     click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
-    try: 
+    try:
         credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
         file_name = write_config(credentials, save_profile)
         click.echo("Credentials saved to {filename} under profile: {profile}"
