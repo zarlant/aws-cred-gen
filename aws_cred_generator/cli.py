@@ -1,4 +1,5 @@
 import click
+import json
 import boto3
 import getpass
 from botocore.exceptions import ClientError, ProfileNotFound
@@ -33,19 +34,25 @@ def role():
 @click.option("--role-arn", "-r", required=True)
 @click.option("--session", "-s", required=True)
 @click.option("--save-profile", "-p", required=True)
-def assume_role(role_arn, session, save_profile):
-    click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
+@click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
+def assume_role(role_arn, session, save_profile, stdout):
+    if not stdout:
+        click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
     try:
         boto_session = boto3.Session(profile_name=Config.aws_profile)
     except ProfileNotFound:
         boto_session = boto3.Session()
     sts_client = boto_session.client("sts")
-    click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
+    if not stdout:
+        click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
     try:
         credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        if stdout:
+            print(json.dumps(credentials["Credentials"], default=lambda x: str(x)))
         file_name = write_config(credentials, save_profile)
-        click.echo("Credentials saved to {filename} under profile: {profile}"
-                   .format(filename=file_name, profile=save_profile))
+        if not stdout:
+            click.echo("Credentials saved to {filename} under profile: {profile}"
+                       .format(filename=file_name, profile=save_profile))
     except ClientError as e:
         click.echo("Error assuming role: {e}".format(e=e))
         click.get_current_context().exit(2)
@@ -55,9 +62,11 @@ def assume_role(role_arn, session, save_profile):
 @click.option("--session", "-s")
 @click.option("--save-profile", "-p", required=True, help="The profile in\
               which the generated credentials will be saved")
-def assume_org_role(account_number, session, save_profile):
+@click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
+def assume_org_role(account_number, session, save_profile, stdout):
     """Used to assume the default OrganizationAccountAccessRole in the given account"""
-    click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
+    if not stdout:
+        click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
     try:
         boto_session = boto3.Session(profile_name=Config.aws_profile)
     except ProfileNotFound:
@@ -68,12 +77,16 @@ def assume_org_role(account_number, session, save_profile):
     role_arn = "arn:aws:iam::{account}:role/OrganizationAccountAccessRole".format(account=account_number)
     if session is None:
         session = getpass.getuser()
-    click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
+    if not stdout:
+        click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
     try:
         credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        if stdout:
+            print(json.dumps(credentials["Credentials"], default=lambda x: str(x)))
         file_name = write_config(credentials, save_profile)
-        click.echo("Credentials saved to {filename} under profile: {profile}"
-                   .format(filename=file_name, profile=save_profile))
+        if not stdout:
+            click.echo("Credentials saved to {filename} under profile: {profile}"
+                       .format(filename=file_name, profile=save_profile))
     except ClientError as e:
         click.echo("Error assuming role: {e}".format(e=e))
         click.get_current_context().exit(2)

@@ -8,12 +8,13 @@ except IOError:
 
 setup(
     name="aws-cred-gen",
-    version="0.0.3",
+    version="0.0.4",
     description="Package uses sts to assume a role based on AWS profile passed in",
     license="MIT",
     author="Zacharias Thompson",
     packages=find_packages(),
     install_requires=["click", "boto3"],
+    keywords = ["aws", "credentials", "aws sts"],
     long_description=long_description,
     classifiers=[
         "Programming Language :: Python",
