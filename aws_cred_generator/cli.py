@@ -35,7 +35,8 @@ def role():
 @click.option("--session", "-s", required=True)
 @click.option("--save-profile", "-p", required=True)
 @click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
-def assume_role(role_arn, session, save_profile, stdout):
+@click.option("--external-id", "-e", required=False, default=None)
+def assume_role(role_arn, session, save_profile, stdout, external_id):
     if not stdout:
         click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
     try:
@@ -45,8 +46,16 @@ def assume_role(role_arn, session, save_profile, stdout):
     sts_client = boto_session.client("sts")
     if not stdout:
         click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
+
+    assume_kwargs = {
+        "RoleArn": role_arn,
+        "RoleSessionName": session
+    }
+    if external_id is not None:
+        assume_kwargs["ExternalId"] = external_id
+
     try:
-        credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        credentials = sts_client.assume_role(**assume_kwargs)
         if stdout:
             print(json.dumps(credentials["Credentials"], default=lambda x: str(x)))
         file_name = write_config(credentials, save_profile)
@@ -63,7 +72,8 @@ def assume_role(role_arn, session, save_profile, stdout):
 @click.option("--save-profile", "-p", required=True, help="The profile in\
               which the generated credentials will be saved")
 @click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
-def assume_org_role(account_number, session, save_profile, stdout):
+@click.option("--external-id", "-e", required=False, default=None)
+def assume_org_role(account_number, session, save_profile, stdout, external_id):
     """Used to assume the default OrganizationAccountAccessRole in the given account"""
     if not stdout:
         click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
@@ -80,7 +90,14 @@ def assume_org_role(account_number, session, save_profile, stdout):
     if not stdout:
         click.echo("Assuming role: {role} with session: {session}".format(role=role_arn, session=session))
     try:
-        credentials = sts_client.assume_role(RoleArn=role_arn, RoleSessionName=session)
+        assume_kwargs = {
+            "RoleArn": role_arn,
+            "RoleSessionName": session
+        }
+        if external_id is not None:
+            assume_kwargs["ExternalId"] = external_id
+
+        credentials = sts_client.assume_role(**assume_kwargs)
         if stdout:
             print(json.dumps(credentials["Credentials"], default=lambda x: str(x)))
         file_name = write_config(credentials, save_profile)
