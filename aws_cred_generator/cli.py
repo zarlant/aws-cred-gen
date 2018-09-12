@@ -2,7 +2,7 @@ import click
 import json
 import boto3
 import getpass
-from botocore.exceptions import ClientError, ProfileNotFound
+from botocore.exceptions import ClientError, ProfileNotFound, NoCredentialsError
 from os import makedirs
 from os.path import expanduser, exists as path_exists
 try:
@@ -28,7 +28,7 @@ def cli(profile, output, region):
 
 @click.group()
 def role():
-    """Manage AWS Roles"""
+    """Assume into AWS Roles"""
 
 @click.command("assume")
 @click.option("--role-arn", "-r", required=True)
@@ -65,6 +65,9 @@ def assume_role(role_arn, session, save_profile, stdout, external_id):
     except ClientError as e:
         click.echo("Error assuming role: {e}".format(e=e))
         click.get_current_context().exit(2)
+    except NoCredentialsError as ne:
+        click.echo("{e}: '{p}'".format(p=Config.aws_profile, e=ne))
+        click.get_current_context().exit(3)
 
 @click.command("assume-org")
 @click.option("--account-number", "-a", required=True)
@@ -107,6 +110,9 @@ def assume_org_role(account_number, session, save_profile, stdout, external_id):
     except ClientError as e:
         click.echo("Error assuming role: {e}".format(e=e))
         click.get_current_context().exit(2)
+    except NoCredentialsError as ne:
+        click.echo("{e}: '{p}'".format(p=Config.aws_profile, e=ne))
+        click.get_current_context().exit(3)
 
 
 def write_config(credentials, save_profile):
