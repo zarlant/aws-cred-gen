@@ -51,7 +51,7 @@ def assume_role(role_arn, session, save_profile, stdout, external_id):
         "RoleArn": role_arn,
         "RoleSessionName": session
     }
-    if external_id is not None:
+    if external_id is not None and external_id != "":
         assume_kwargs["ExternalId"] = external_id
 
     try:
@@ -97,7 +97,7 @@ def assume_org_role(account_number, session, save_profile, stdout, external_id):
             "RoleArn": role_arn,
             "RoleSessionName": session
         }
-        if external_id is not None:
+        if external_id is not None and external_id != "":
             assume_kwargs["ExternalId"] = external_id
 
         credentials = sts_client.assume_role(**assume_kwargs)
