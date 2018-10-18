@@ -35,8 +35,9 @@ def role():
 @click.option("--session", "-s", required=True)
 @click.option("--save-profile", "-p", required=True)
 @click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
-@click.option("--external-id", "-e", required=False, default=None)
-def assume_role(role_arn, session, save_profile, stdout, external_id):
+@click.option("--external-id", "-e", required=False, default=None, help="External ID to utilize")
+@click.option("--duration", required=False, default=None, help="Duration in seconds. (Default=3600)")
+def assume_role(role_arn, session, save_profile, stdout, external_id, duration):
     if not stdout:
         click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
     try:
@@ -53,6 +54,9 @@ def assume_role(role_arn, session, save_profile, stdout, external_id):
     }
     if external_id is not None and external_id != "":
         assume_kwargs["ExternalId"] = external_id
+
+    if duration and isinstance(duration, int):
+        assume_kwargs["DurationSeconds"] = duration
 
     try:
         credentials = sts_client.assume_role(**assume_kwargs)
@@ -75,8 +79,9 @@ def assume_role(role_arn, session, save_profile, stdout, external_id):
 @click.option("--save-profile", "-p", required=True, help="The profile in\
               which the generated credentials will be saved")
 @click.option("--stdout", is_flag=True, default=False, help="Print the credentials to standard out")
-@click.option("--external-id", "-e", required=False, default=None)
-def assume_org_role(account_number, session, save_profile, stdout, external_id):
+@click.option("--external-id", "-e", required=False, default=None, help="External ID to utilize")
+@click.option("--duration", required=False, default=None, help="Duration in seconds. (Default=3600)")
+def assume_org_role(account_number, session, save_profile, stdout, external_id, duration):
     """Used to assume the default OrganizationAccountAccessRole in the given account"""
     if not stdout:
         click.echo("Creating session with profile: {profile}".format(profile=Config.aws_profile))
@@ -99,6 +104,9 @@ def assume_org_role(account_number, session, save_profile, stdout, external_id):
         }
         if external_id is not None and external_id != "":
             assume_kwargs["ExternalId"] = external_id
+
+        if duration and isinstance(duration, int):
+            assume_kwargs["DurationSeconds"] = duration
 
         credentials = sts_client.assume_role(**assume_kwargs)
         if stdout:
