@@ -11,3 +11,9 @@ Assume into a target role using the profile example and saving the resulting cre
 Assume into the OrganizationAccountAccessRole from the main payer account:
 
 `aws-cred-gen --profile payer-profile role assume-org -a 123412314123 -p target-account`
+
+## Build with Docker:
+`docker build -t aws-cred-gen .`
+
+## Run locally as a sandboxed CLI:
+`alias aws-cred-gen="docker run -it --rm -v ~/.aws/:/root/.aws aws-cred-gen`
